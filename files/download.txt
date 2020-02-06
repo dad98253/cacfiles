@@ -1,0 +1,9 @@
+string Downloadcacapi::download(const string& id)
+{
+	this->last_interaction_time = time(NULL);
+	ecurl_easy_setopt(this->ch, CURLOPT_HTTPGET, 1);
+	return (this->curl_exec(
+			"https://download.cloudatcost.com/user/download.php?filecode="
+					+ urlencode(id)));
+}
+

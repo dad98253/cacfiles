@@ -1,0 +1,48 @@
+string Downloadcacapi::upload(const string& data, const string& savename)
+{
+	this->last_interaction_time = time(NULL);
+	curl_mime *mime1 = NULL;
+	curl_mimepart *part1 = NULL;
+	struct curl_slist *slist1 = NULL;
+	slist1 = ecurl_slist_append(slist1, "X-Requested-With: XMLHttpRequest");
+	mime1 = ecurl_mime_init(this->ch);
+	part1 = ecurl_mime_addpart(mime1);
+	ecurl_mime_data(part1, "", CURL_ZERO_TERMINATED);
+	ecurl_mime_name(part1, "days");
+	part1 = ecurl_mime_addpart(mime1);
+	ecurl_mime_data(part1, "", CURL_ZERO_TERMINATED);
+	ecurl_mime_name(part1, "downloads");
+	part1 = ecurl_mime_addpart(mime1);
+	ecurl_mime_data(part1, "", CURL_ZERO_TERMINATED);
+	ecurl_mime_name(part1, "password");
+	part1 = ecurl_mime_addpart(mime1);
+//curl_mime_filedata(part1, "/dev/null");
+	ecurl_mime_data(part1, &data[0], data.length());
+	ecurl_mime_filename(part1, savename.c_str());
+	ecurl_mime_name(part1, "file");
+	ecurl_easy_setopt(this->ch, CURLOPT_MIMEPOST, mime1);
+	ecurl_easy_setopt(this->ch, CURLOPT_HTTPHEADER, slist1);
+//string response=this->curl_exec("http://dumpinput.ratma.net");
+	string response = this->curl_exec(
+			"https://download.cloudatcost.com/upload.php");
+	ecurl_easy_setopt(this->ch, CURLOPT_MIMEPOST, NULL);
+	ecurl_easy_setopt(this->ch, CURLOPT_HTTPHEADER, NULL);
+	curl_mime_free(mime1);
+	mime1 = NULL; //
+	curl_slist_free_all(slist1);
+	slist1 = NULL;
+	if (unlikely(response.length() != 27))
+	{
+		std::cerr << "response length: " << response.length() << ": "
+				<< response << "\n";
+		throw std::runtime_error(
+				"upload response length was not 27 bytes long! something went wrong");
+	}
+	if (unlikely(response[0] != '1' || response[1] != '|'))
+	{
+		std::cerr << "(invalid) upload response: " << response << "\n";
+		throw std::runtime_error("upload response was invalid!");
+	}
+	response.erase(0, 2);
+	return response;
+}

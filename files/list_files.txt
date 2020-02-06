@@ -1,0 +1,23 @@
+string Downloadcacapi::list_files()
+{
+	this->last_interaction_time = time(NULL);
+
+	ecurl_easy_setopt(this->ch, CURLOPT_POST, 1);
+//	ecurl_easy_setopt(this->ch, CURLOPT_COPYPOSTFIELDS,
+//			string("act=1&filecode=" + urlencode(id)).c_str());
+	string response = this->curl_exec(
+			"https://download.cloudatcost.com/user/uploaded_files.php");
+//    string response=this->curl_exec("http://dumpinput.ratma.net");
+/*	if (unlikely(response.length() == 1 || response[0] != 'y'))
+	{
+		std::cerr << "response length: " << response.length() << ": "
+				<< response << std::endl;
+		throw std::runtime_error(
+				"failed to delete upload! got invalid response from delete api.");
+	} */
+#ifdef DEBUG
+	cerr << "files listed " << endl;
+#endif
+	response.erase(0, 2);
+	return response;
+}
