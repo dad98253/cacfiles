@@ -15,7 +15,7 @@
 
 using std::string;
 using std::vector;
-using std::future;
+//using std::future;
 
 
 class Downloadcacapi
@@ -25,15 +25,15 @@ public:
 	string list_files();
 	vector<string> download_multi(const vector<string> codes);
 	string upload(const string& data, const string& savename);
-	struct Upload_multi_arg
-	{
-		string data;
-		string savename;
-	};
-	vector<string> upload_multi(
-			const vector<Downloadcacapi::Upload_multi_arg> args);
+//	struct Upload_multi_arg
+//	{
+//		string data;
+//		string savename;
+//	};
+//	vector<string> upload_multi(
+//			const vector<Downloadcacapi::Upload_multi_arg> args);
 	void delete_upload(const string& id);
-	future<bool> async_delete_upload(const string& id);
+//	future<bool> async_delete_upload(const string& id);
 	Downloadcacapi(const string& username, const string& password);
 	~Downloadcacapi();
 	vector<string> get_cookies();
