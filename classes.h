@@ -10,12 +10,18 @@
 
 #include <string>
 #include <vector>
+#ifdef WINDOZE
+#else
 #include <future>
 #include <curl/curl.h>
+#endif
 
 using std::string;
 using std::vector;
+#ifdef WINDOZE
+#else
 using std::future;
+#endif
 
 
 class Downloadcacapi

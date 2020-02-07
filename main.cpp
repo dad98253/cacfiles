@@ -7,11 +7,14 @@
 
 
 #include <string.h>
+#ifdef WINDOZE
+#else
 #include <execinfo.h>
-#include <error.h>
 #include <err.h>
-#include <errno.h>
 #include <unistd.h>
+#endif
+#include <error.h>
+#include <errno.h>
 #include <stdio.h>
 
 #include "classes.h"
