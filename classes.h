@@ -55,7 +55,7 @@ private:
 	string responsebuf;
 	void login();
 	void logout();
-	std::thread cookie_session_keepalive_thread;
+//	std::thread cookie_session_keepalive_thread;
 	CURL *cookie_session_keepalive_thread_curl;
 	time_t last_interaction_time;
 	static size_t curl_write_hook(const void * read_ptr, const size_t size,

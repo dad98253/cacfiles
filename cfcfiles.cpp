@@ -501,13 +501,7 @@ string Downloadcacapi::list_files()
 	string response = this->curl_exec(
 			"https://download.cloudatcost.com/user/uploaded_files.php");
 //    string response=this->curl_exec("http://dumpinput.ratma.net");
-/*	if (unlikely(response.length() == 1 || response[0] != 'y'))
-	{
-		std::cerr << "response length: " << response.length() << ": "
-				<< response << std::endl;
-		throw std::runtime_error(
-				"failed to delete upload! got invalid response from delete api.");
-	} */
+
 #ifdef DEBUG
 	cerr << "files listed " << endl;
 #endif
@@ -617,43 +611,15 @@ Downloadcacapi::Downloadcacapi(const string& username, const string& password) :
 	this->cookie_session_keepalive_thread_curl = ecurl_easy_init();
 	ecurl_clone_cookies(this->ch, this->cookie_session_keepalive_thread_curl);
 	this->last_interaction_time = time(NULL);
-	cookie_session_keepalive_thread =
-			std::thread(
-					[this]()->void
-					{
-						string unused_reply_buffer;
-						ecurl_easy_setopt(this->cookie_session_keepalive_thread_curl,CURLOPT_WRITEDATA,&unused_reply_buffer);
-						ecurl_easy_setopt(this->cookie_session_keepalive_thread_curl,CURLOPT_URL,"https://download.cloudatcost.com/user/settings.php");
-						ecurl_easy_setopt(this->cookie_session_keepalive_thread_curl,CURLOPT_HTTPGET,1);
-						ecurl_easy_setopt(this->cookie_session_keepalive_thread_curl,CURLOPT_WRITEFUNCTION,Downloadcacapi::curl_write_hook);
-						for(;;)
-						{
-							//this_thread::sleep_for(chrono::seconds(1));
-							 sleep(1);  //  added to avoid use of this_thread
-							if(this->last_interaction_time==0)
-							{
-								// 0 is a magic value for `time to shut down`.
-								return;
-							}
-							if(this->last_interaction_time > (time(NULL)-(20*60)))
-							{
-								continue;
-							}
-							//cout << "20min ping.. last: " << this->last_interaction_time << " - now: " << time(NULL) << endl;
-							//been over 10 minutes since the last interaction, time to send a keepalive ping.
-							ecurl_easy_perform(this->cookie_session_keepalive_thread_curl);
-							this->last_interaction_time=time(NULL);
-							unused_reply_buffer.clear();
-						}
-					});
-} //
+}
+
 Downloadcacapi::~Downloadcacapi()
 {
 	this->last_interaction_time = 0; // magic value for shut down.
-	this->cookie_session_keepalive_thread.join(); // a signal would be faster/better... not sure how to implement that.
+//	this->cookie_session_keepalive_thread.join(); // a signal would be faster/better... not sure how to implement that.
 	this->logout();
 	curl_easy_cleanup(this->ch);
-	curl_easy_cleanup(this->cookie_session_keepalive_thread_curl);
+//	curl_easy_cleanup(this->cookie_session_keepalive_thread_curl);
 }
 void Downloadcacapi::login()
 {
@@ -710,118 +676,5 @@ vector<string> Downloadcacapi::get_cookies()
 		curl_slist_free_all(cookies);
 	}
 	return ret;
-}
-
-
-void exit_global_cleanup(void)
-{
-	static mutex single_exit_global_cleanup_mutex;
-	{
-		if (unlikely(!single_exit_global_cleanup_mutex.try_lock()))
-		{
-			myerror(0, errno,
-					"Warning: more than 1 thread tried to run exit_global_cleanup! thread id %zu prevented..\n",
-					pthread_self());
-			return;
-		}
-	}
-	printf("shutting down, cleaning up.. thread doing the cleanup: %zu \n",
-			pthread_self());
-
-	if (close_me_on_cleanup)
-	{
-		fclose(close_me_on_cleanup);
-	}
-	curl_global_cleanup();
-}
-void shutdown_signal_handler(int sig, siginfo_t *siginfo, void *context)
-{
-	(void) context;
-	myerror(EXIT_FAILURE, errno,
-			"received shutdown signal %i (%s) from PID %i / UID %i. shutting down..\n",
-			sig, strsignal(sig), (int) siginfo->si_pid, (int) siginfo->si_uid);
-
-}
-void install_shutdown_signal_handler(const int sig)
-{
-//yes, void. i terminate if there's an error.
-	struct sigaction act =
-	{ 0 };
-	act.sa_sigaction = &shutdown_signal_handler;
-	act.sa_flags = SA_SIGINFO;
-	if (unlikely(-1==sigaction(sig, &act, NULL)))
-	{
-		myerror(EXIT_FAILURE, errno,
-				"failed to install signal handler for %i (%s)\n", sig,
-				strsignal(sig));
-	}
-}
-void install_shutdown_signal_handlers(void)
-{
-#if defined(_POSIX_VERSION)
-#if _POSIX_VERSION>=199009L
-//daemon mode not supported (yet?)
-	install_shutdown_signal_handler(SIGHUP);
-	install_shutdown_signal_handler(SIGINT);
-	install_shutdown_signal_handler(SIGQUIT);
-	install_shutdown_signal_handler(SIGILL);		//?
-	install_shutdown_signal_handler(SIGABRT);
-	install_shutdown_signal_handler(SIGFPE);		//?
-//SIGKILL/SIGSTOP is not catchable anyway
-	install_shutdown_signal_handler(SIGSEGV);		//?
-	install_shutdown_signal_handler(SIGPIPE);		//?
-	install_shutdown_signal_handler(SIGALRM);
-	install_shutdown_signal_handler(SIGTERM);
-//default action for SIGUSR1/SIGUSR2 is to terminate, so, until i have something better to do with them..
-	install_shutdown_signal_handler(SIGUSR1);
-	install_shutdown_signal_handler(SIGUSR2);
-//ignored: SIGCHLD
-#if _POSIX_VERSION >=200112L
-	install_shutdown_signal_handler(SIGBUS);		//?
-	install_shutdown_signal_handler(SIGPOLL);		//?
-	install_shutdown_signal_handler(SIGSYS);		//?
-	install_shutdown_signal_handler(SIGTRAP);		//?
-//ignored: SIGURG
-	install_shutdown_signal_handler(SIGVTALRM);
-	install_shutdown_signal_handler(SIGXCPU);	//not sure this 1 is catchable..
-	install_shutdown_signal_handler(SIGXFSZ);
-#endif
-#endif
-#endif
-//Now there are more non-standard signals who's default action is to terminate the process
-// which we probably should look out for, but.... cba now. they shouldn't happen anyway (like some 99% of the list above)
-}
-struct mybuffer
-{
-	size_t buffer_size;
-	char* buffer;
-};
-struct myrequest
-{
-	struct nbd_request nbdrequest;
-	struct mybuffer mybuf;
-};
-struct myreply
-{
-	struct nbd_reply nbdreply __attribute((packed));
-	struct mybuffer mybuf;
-};
-void print_request_data(const char *initial_message,
-		const struct myrequest *request)
-{
-	return;
-	printf("%s\n", initial_message);
-	printf("request->magic: %i\n", NTOHL(request->nbdrequest.magic));
-	printf("request->type: %i\n", NTOHL(request->nbdrequest.type));
-	{
-		uint64_t nhandle;
-		static_assert(sizeof(nhandle) == sizeof(request->nbdrequest.handle),
-				"if this fails, the the code around needs to get updated.");
-		memcpy(&nhandle, request->nbdrequest.handle, sizeof(nhandle));
-		printf("request->handle: %llu\n", NTOHLL(nhandle));
-	}
-
-	printf("request->from: %llu\n", NTOHLL(request->nbdrequest.from));
-	printf("request->len: %u\n", NTOHL(request->nbdrequest.len));
 }
 

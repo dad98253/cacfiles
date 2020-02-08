@@ -78,7 +78,7 @@ int ParseItAll(char * src, FileIndexStructure * FileList, int * isettings)
 		}
 		FileIndexp = (FileData*)malloc(sizeof(FileData));
 		FileList->NumFIles++;
-		FileIndexpp = (FileData**)realloc(FileIndexpp,sizeof(FileData*)*(FileList->NumFIles+1));
+		FileIndexpp = (FileData**)realloc(FileIndexpp,sizeof(FileData*)*(FileList->NumFIles+2));
 		FileList->FileIndex=FileIndexpp;
 		FileName = (char *)malloc(lenTd);
 		AbsIndex = (int)(NextTd-allsmall);
@@ -95,19 +95,24 @@ int ParseItAll(char * src, FileIndexStructure * FileList, int * isettings)
 	}
 // find PasswdSettings.txt
 	for (i=0;i<FileList->NumFIles;i++) {
-		FileIndexp=FileIndexpp[i];
+		FileIndexp=FileIndexpp[i+1];
 		if ( strcmp(FileIndexp->FileName,"PasswdSettings.txt") == 0 ) {
 			fprintf(stderr,"found PasswdSettings.txt...\n");
-			*isettings = i;
+			*isettings = i+1;
 		}
 	}
-///   free all allocated structs
-/*	for (i=0;i<FileList->NumFIles;i++) {
-		FileIndexp=FileIndexpp[FileList->NumFIles];
-		free(FileIndexp->FileName);
-		free(FileIndexp->FileCode);
-	}*/
-//	free(FileIndexpp);
 	free(allsmall);
 	return (0);
+}
+
+void FreeUpHeap(FileIndexStructure* FileList)
+{
+	int i;
+	///   free all allocated structs
+	for (i=0;i<FileList->NumFIles;i++) {
+		FileIndexp=FileIndexpp[i+1];
+		free(FileIndexp->FileName);
+		free(FileIndexp->FileCode);
+	}
+	free(FileIndexpp);
 }

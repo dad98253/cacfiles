@@ -25,6 +25,7 @@ using std::string;
 void init(const int argc, char **argv, const bool onlyapitests);
 void Downloadcacapitests();
 extern int ParseItAll(char * src, FileIndexStructure * FileIndexData, int * isettings);
+extern void FreeUpHeap(FileIndexStructure* FileList);
 
 extern std::string curlprettyerror(const string name, const CURLcode errnum);
 
@@ -68,8 +69,8 @@ void init(const int argc, char **argv, const bool onlyapitests)
 			CURLcode c = curl_global_init(CURL_GLOBAL_ALL);
 			if (c != CURLE_OK)
 			{
-				throw std::runtime_error(
-						curlprettyerror("curl_global_init()", c));
+				fprintf(stderr, "curl_global_init failed\n");
+				exit(1);
 			}
 		}
 	}
@@ -79,10 +80,10 @@ void init(const int argc, char **argv, const bool onlyapitests)
 
 void Downloadcacapitests()
 {
-	using namespace std::chrono;
-	milliseconds ms = duration_cast<milliseconds>(
-			system_clock::now().time_since_epoch());
-#define ugly(){milliseconds noww=duration_cast<milliseconds >(system_clock::now().time_since_epoch());fprintf(stdout,"%fs ",double((noww-ms).count())/1000);ms=duration_cast<milliseconds >(system_clock::now().time_since_epoch());}
+//	using namespace std::chrono;
+//	milliseconds ms = duration_cast<milliseconds>(
+//			system_clock::now().time_since_epoch());
+#define ugly(){fprintf(stdout," ... ");}
 	string tmp;
 	string tmp2;
 	string uploadcontent = "Hello world!";
@@ -150,6 +151,7 @@ void Downloadcacapitests()
 	fflush(stdout);
 	delete cacks;
 	ugly()
+	FreeUpHeap(&FileIndexData);
 	fprintf(stdout, "done!\n");
 #undef ugly
 }
