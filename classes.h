@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #ifdef WINDOZE
+#include "../curl-7.68.0/include/curl/curl.h"
 #else
 #include <future>
 #include <curl/curl.h>

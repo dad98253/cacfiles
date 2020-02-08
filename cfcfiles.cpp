@@ -4,10 +4,15 @@
  *  Created on: Jan 21, 2020
  *      Author: dad
  */
+
 #include <iostream>
-#include <error.h>
+
 #ifdef WINDOZE
+#include <stdlib.h>
+#include <cstddef>
+#include "..\curl-7.68.0\include\curl\curl.h"
 #else
+#include <error.h>
 #include <err.h>
 #include <execinfo.h>
 #include <unistd.h>
@@ -17,47 +22,51 @@
 #include <future>
 #include <shared_mutex>
 #include <unistd.h>
-#endif
-#include <errno.h>
-#include <assert.h>
-#include <string>
-#include <cstring>
-#include <functional>
 #include <pthread.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <signal.h>
 #include <atomic>
-#include <vector>
-#include <math.h>
-#include <algorithm> // std::all_of
 #include <inttypes.h> // todo: proper printf macros
 #include <unordered_map>
 #include <linux/nbd.h>
 #include <curl/curl.h>
+#include <errno.h>
+#endif
+#include <assert.h>
+#include <string>
+#include <cstring>
+#include <functional>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <vector>
+#include <math.h>
+#include <algorithm> // std::all_of
 
 #include "classes.h"
 
 //using namespace std;
-using std::cout;
-using std::endl;
-using std::string;
+#ifdef WINDOZE
+#define __BYTE_ORDER __LITTLE_ENDIAN
+#else
 using std::atomic_uint;
-using std::atomic_bool;
 using std::mutex;
-using std::shared_mutex;
 //using std::this_thread;
+using std::shared_mutex;
 using std::to_string;
-using std::runtime_error;
-using std::vector;
 using std::thread;
 using std::future;
 using std::promise;
+using std::atomic_bool;
+using std::array;
+#endif
+using std::cout;
+using std::endl;
+using std::string;
+using std::runtime_error;
+using std::vector;
 using std::flush;
 using std::cerr;
-using std::array;
 
 
 extern string argv_username;
@@ -67,26 +76,30 @@ enum
 {
 	SECTOR_SIZE = 4096, BLOCK_SIZE = 4096, CAC_CODE_SIZE = 25
 };
+#ifdef WINDOZE
+#define to_string CString
+#else
 static_assert((sizeof(size_t) > 4),"32bit systems are not officially supported.. feel free to complain in the bugtracker if this is an issue for you. (sizeof(size_t) <=4)" );
+#endif
 
-string sectorindex_file;
-string nbd_path;
-uint64_t sectors = 0;
-uint number_of_worker_threads = 0;
-atomic_uint number_of_worker_threads_ready(0);
-atomic_bool nbd_initialization_started(false);
-atomic_bool nbd_initialization_success(false);
-mutex sector_readwrite_mutex;
+//string sectorindex_file;
+//string nbd_path;
+//uint64_t sectors = 0;
+//uint number_of_worker_threads = 0;
+//atomic_uint number_of_worker_threads_ready(0);
+//atomic_bool nbd_initialization_started(false);
+//atomic_bool nbd_initialization_success(false);
+//mutex sector_readwrite_mutex;
 
 
-
+/*
 struct
 {
 	int nbd_fd;
 	int localrequestsocket;
 	int remoterequestsocket;
 }volatile kernelIPC =
-{ .nbd_fd = -1, .localrequestsocket = -1, .remoterequestsocket = -1 };
+{ .nbd_fd = -1, .localrequestsocket = -1, .remoterequestsocket = -1 }; */
 FILE *close_me_on_cleanup = NULL;
 // <headache>
 void install_shutdown_signal_handlers(void);
@@ -155,6 +168,17 @@ void exit_global_cleanup(void);
 #endif // __BYTE_ORDER == __BIG_ENDIAN
 #endif // !defined(NTOHL)
 
+#ifdef WINDOZE
+#define macrobacktrace() ()
+int myerror(int status,int errnum,...)
+{	
+	va_list args;
+	va_start(args, errnum);
+//	error_at_line(status,errnum,__FILE__,__LINE__,__VA_ARGS__);
+	va_end(args);
+	return (0);
+}
+#else
 #define macrobacktrace() { \
 void *array[20]; \
 int traces=backtrace(array,sizeof(array)/sizeof(array[0])); \
@@ -166,9 +190,11 @@ backtrace_symbols_fd(array,traces,STDERR_FILENO); \
 }
 
 #define myerror(status,errnum,...){macrobacktrace();error_at_line(status,errnum,__FILE__,__LINE__,__VA_ARGS__);}
+#endif
 // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3451.pdf
 // jesus christ devs, just give us a .ignore() already.
 template<typename T>
+/*
 void noget(T&& in)
 {
 	// uncomment line below to effectively make all noget()'s synchronous
@@ -194,26 +220,26 @@ void noget(T&& in)
 						vec.pop_back();
 						vmut.unlock();
 						// cerr << "getting!" << endl;
-				target.get();
-			}
-			else
-			{
-				vmut.unlock();
-			}
-		}while(size>0);
-		// ¯\_(ツ)_/¯
-		//this_thread::sleep_for(std::chrono::seconds(1));
+						target.get();
+					}
+					else
+					{
+						vmut.unlock();
+					}
+				}while(size>0);
+				// ¯\_(ツ)_/¯
+				//this_thread::sleep_for(std::chrono::seconds(1));
 				assert(0);
 
 
-	}
-});
+			}
+		});
 		getter.detach();
 	}
 	vmut.lock();
 	vec.push_back(std::move(in));
 	vmut.unlock();
-}
+} */
 void *emalloc(const size_t size)
 {
 	void *ret = malloc(size);
@@ -265,14 +291,22 @@ size_t efwrite(const void * ptr, const size_t size, const size_t count,
 	}
 	return ret;
 }
+#ifdef WINDOZE
+#else
 static_assert(CURL_AT_LEAST_VERSION(7,56,0),"this program requires libcurl version >= \"7.56.0\", your libcurl version is \"" LIBCURL_VERSION "\", which is too old." );
+#endif
 //this  almost has to be a macro because of how curl_easy_setopt is made (a macro taking different kinds of parameter types)
+
+#ifdef WINDOZE
+#define ecurl_easy_setopt(handle,opt,param) curl_easy_setopt(handle,opt,param)
+#else
 #define ecurl_easy_setopt(handle, option, parameter)({ \
 CURLcode ret_8uyr7t6sdygfhd=curl_easy_setopt(handle,option,parameter); \
 if(unlikely( ret_8uyr7t6sdygfhd  != CURLE_OK)){ \
 	 myerror(EXIT_FAILURE,errno,"curl_easy_setopt failed to set option %i. CURLcode: %i curl_easy_strerror: %s\n", option, ret_8uyr7t6sdygfhd, curl_easy_strerror(ret_8uyr7t6sdygfhd));   \
 	} \
 });
+#endif
 #define ecurl_multi_setopt(multi_handle,option, parameter)({ \
 		CURLMcode ret_7yruhj=curl_multi_setopt(multi_handle,option,parameter);\
 		if(unlikely(ret_7yruhj!= CURLM_OK)){ \
@@ -286,17 +320,36 @@ if(unlikely( ret_8uyr7t6sdygfhd  != CURLE_OK)){ \
 		myerror(EXIT_FAILURE,errno,"curl_multi_add_handle failed. CURLMcode: %i curl_multi_strerror: %s\n",ret_8ujih,curl_multi_strerror(ret_8ujih)); \
 	}\
 });
+#ifdef WINDOZE
+int ecurl_easy_getinfo(void * curl,CURLINFO info,...)
+{	
+	va_list args;
+	va_start(args, info);
+	CURLcode ret=curl_easy_getinfo(curl,info,args); 
+	if(unlikely(ret!=CURLE_OK)){ 
+		 myerror(EXIT_FAILURE,errno,"curl_easy_getinfo failed to get info %i. CURLCode: %i curl_easy_strerror: %s\n", info, ret, curl_easy_strerror(ret));
+	} 
+	va_end(args);
+	return (0);
+}
+#else
 #define ecurl_easy_getinfo(curl,info,...){ \
 	CURLcode ret=curl_easy_getinfo(curl,info,__VA_ARGS__); \
 	if(unlikely(ret!=CURLE_OK)){ \
 		 myerror(EXIT_FAILURE,errno,"curl_easy_getinfo failed to get info %i. CURLCode: %i curl_easy_strerror: %s\n", info, ret, curl_easy_strerror(ret));   \
 	} \
 }
-
+#endif
 std::string curlprettyerror(const string name, const CURLcode errnum)
 {
+#ifdef WINDOZE
+	char buffer [33];
+	return string(
+			name + " error " + itoa(errnum,buffer,10) + ": "
+#else
 	return string(
 			name + " error " + to_string(errnum) + ": "
+#endif
 					+ string(curl_easy_strerror(errnum)));
 }
 CURL* ecurl_easy_init()
@@ -496,7 +549,7 @@ string urlencode(const string& str)
 }
 // here is how zswap does it: https://github.com/torvalds/linux/blob/master/mm/zswap.c#L971 / zswap_is_page_same_filled
 // https://stackoverflow.com/a/46963010/1067003
-bool memory_is_all_zeroes(unsigned char const* const begin,
+/*bool memory_is_all_zeroes(unsigned char const* const begin,
 		std::size_t const bytes)
 {
 	return std::all_of(begin, begin + bytes, [](unsigned char const byte)
@@ -519,6 +572,7 @@ void sector_copy(const string& src, char *target)
 		memcpy(target, &src[0], SECTOR_SIZE);
 	}
 }
+
 std::string string_to_hex(const std::string& input)
 {
 	static const char* const lut = "0123456789ABCDEF";
@@ -534,6 +588,7 @@ std::string string_to_hex(const std::string& input)
 	}
 	return output;
 }
+*/
 // <headache2>
 
 //</headache2>
@@ -579,6 +634,7 @@ string Downloadcacapi::download(const string& id)
 			"https://download.cloudatcost.com/user/download.php?filecode="
 					+ urlencode(id)));
 }
+/*
 vector<string> Downloadcacapi::download_multi(const vector<string> codes)
 {
 
@@ -596,7 +652,7 @@ vector<string> Downloadcacapi::download_multi(const vector<string> codes)
 	ret.resize(num);
 	CURL *handles[num];
 	CURLM *multi_handle = ecurl_multi_init();
-	int still_running; /* keep number of running handles */
+	int still_running; // keep number of running handles 
 	for (size_t i = 0; i < num; ++i)
 	{
 		//handles[i] = ecurl_easy_duphandle_with_cookies(this->ch);
@@ -616,16 +672,16 @@ vector<string> Downloadcacapi::download_multi(const vector<string> codes)
 	{
 		int numfds;
 		ecurl_multi_perform(multi_handle, &still_running);
-		/* wait for activity, timeout or "nothing" */
+		// wait for activity, timeout or "nothing" 
 		ecurl_multi_wait(multi_handle, NULL, 0, 1000, &numfds);
 
-		/* 'numfds' being zero means either a timeout or no file descriptors to
-		 wait for. Try timeout on first occurrence, then assume no file
-		 descriptors and no file descriptors to wait for means wait for 100
-		 milliseconds. */
+		// 'numfds' being zero means either a timeout or no file descriptors to
+		// wait for. Try timeout on first occurrence, then assume no file
+		// descriptors and no file descriptors to wait for means wait for 100
+		// milliseconds. 
 		if (!numfds)
 		{
-			repeats++; /* count number of repeated zero numfds */
+			repeats++; // count number of repeated zero numfds 
 			if (repeats > 1)
 			{
 				std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -645,7 +701,7 @@ vector<string> Downloadcacapi::download_multi(const vector<string> codes)
 	}
 	return ret;
 }
-
+*/
 string Downloadcacapi::upload(const string& data, const string& savename)
 {
 	this->last_interaction_time = time(NULL);

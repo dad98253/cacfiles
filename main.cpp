@@ -12,8 +12,8 @@
 #include <execinfo.h>
 #include <err.h>
 #include <unistd.h>
-#endif
 #include <error.h>
+#endif
 #include <errno.h>
 #include <stdio.h>
 
