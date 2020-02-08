@@ -92,9 +92,13 @@ void Downloadcacapitests()
 	Downloadcacapi* cacks = new Downloadcacapi(argv_username, argv_password);
 	ugly()
 	fprintf(stdout, "done! cookies: ");
-	for (auto& cookie : cacks->get_cookies())
-	{
+//	for (auto& cookie : cacks->get_cookies())
+	string cookie;
+	vector <string> mycookies;
+	mycookies = cacks->get_cookies();
+	for (int i = 0; i < mycookies.size(); ++i) {
 //		fprintf(stdout, " %s - ",cookie);
+		cookie = mycookies[i];
 		fprintf(stdout, " %s - ",cookie.c_str());
 	}
 	fprintf(stdout, "\n");

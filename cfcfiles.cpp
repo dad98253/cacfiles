@@ -648,14 +648,16 @@ void Downloadcacapi::logout()
 }
 string Downloadcacapi::curl_exec(const string& url)
 {
-	this->responsebuf.clear();
+//	this->responsebuf.clear();
+	this->responsebuf.erase();
 	ecurl_easy_setopt(this->ch, CURLOPT_URL, url.c_str());
 	ecurl_easy_perform(this->ch);
 	return string(this->responsebuf);
 }
 void Downloadcacapi::curl_exec_faster1(const string& url)
 {
-	this->responsebuf.clear();
+//	this->responsebuf.clear();
+	this->responsebuf.erase();
 	ecurl_easy_setopt(this->ch, CURLOPT_URL, url.c_str());
 	ecurl_easy_perform(this->ch);
 	return;
