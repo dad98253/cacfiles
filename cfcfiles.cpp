@@ -82,24 +82,6 @@ enum
 static_assert((sizeof(size_t) > 4),"32bit systems are not officially supported.. feel free to complain in the bugtracker if this is an issue for you. (sizeof(size_t) <=4)" );
 #endif
 
-//string sectorindex_file;
-//string nbd_path;
-//uint64_t sectors = 0;
-//uint number_of_worker_threads = 0;
-//atomic_uint number_of_worker_threads_ready(0);
-//atomic_bool nbd_initialization_started(false);
-//atomic_bool nbd_initialization_success(false);
-//mutex sector_readwrite_mutex;
-
-
-/*
-struct
-{
-	int nbd_fd;
-	int localrequestsocket;
-	int remoterequestsocket;
-}volatile kernelIPC =
-{ .nbd_fd = -1, .localrequestsocket = -1, .remoterequestsocket = -1 }; */
 FILE *close_me_on_cleanup = NULL;
 // <headache>
 void install_shutdown_signal_handlers(void);
@@ -192,54 +174,9 @@ backtrace_symbols_fd(array,traces,STDERR_FILENO); \
 #define myerror(status,errnum,...){macrobacktrace();error_at_line(status,errnum,__FILE__,__LINE__,__VA_ARGS__);}
 #endif
 // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3451.pdf
-// jesus christ devs, just give us a .ignore() already.
+
 template<typename T>
-/*
-void noget(T&& in)
-{
-	// uncomment line below to effectively make all noget()'s synchronous
-	//in.get();return;
-	static std::mutex vmut;
-	static std::vector<T> vec;
-	static std::thread getter;
-	static std::mutex single_getter;
-	if (unlikely(single_getter.try_lock()))
-	{
-		getter = std::thread([&]()->void
-		{
-			size_t size;
-			for(;;)
-			{
-				do
-				{
-					vmut.lock();
-					size=vec.size();
-					if(size>0)
-					{
-						T target=std::move(vec[size-1]);
-						vec.pop_back();
-						vmut.unlock();
-						// cerr << "getting!" << endl;
-						target.get();
-					}
-					else
-					{
-						vmut.unlock();
-					}
-				}while(size>0);
-				// ¯\_(ツ)_/¯
-				//this_thread::sleep_for(std::chrono::seconds(1));
-				assert(0);
 
-
-			}
-		});
-		getter.detach();
-	}
-	vmut.lock();
-	vec.push_back(std::move(in));
-	vmut.unlock();
-} */
 void *emalloc(const size_t size)
 {
 	void *ret = malloc(size);
@@ -547,58 +484,13 @@ string urlencode(const string& str)
 	curl_free(escaped);
 	return ret;
 }
-// here is how zswap does it: https://github.com/torvalds/linux/blob/master/mm/zswap.c#L971 / zswap_is_page_same_filled
-// https://stackoverflow.com/a/46963010/1067003
-/*bool memory_is_all_zeroes(unsigned char const* const begin,
-		std::size_t const bytes)
-{
-	return std::all_of(begin, begin + bytes, [](unsigned char const byte)
-	{	return byte == 0;});
-}
-bool memory_is_all_zeroes(char const* const begin, std::size_t const bytes)
-{
-	return memory_is_all_zeroes(
-			reinterpret_cast<unsigned char const* const >(begin), bytes);
-}
-void sector_copy(const string& src, char *target)
-{
-	assert(src.length() == 0 || src.length() == SECTOR_SIZE);
-	if (src.length() == 0)
-	{
-		memset(target, 0, SECTOR_SIZE);
-	}
-	else
-	{
-		memcpy(target, &src[0], SECTOR_SIZE);
-	}
-}
 
-std::string string_to_hex(const std::string& input)
-{
-	static const char* const lut = "0123456789ABCDEF";
-	size_t len = input.length();
-
-	std::string output;
-	output.reserve(2 * len);
-	for (size_t i = 0; i < len; ++i)
-	{
-		const unsigned char c = input[i];
-		output.push_back(lut[c >> 4]);
-		output.push_back(lut[c & 15]);
-	}
-	return output;
-}
-*/
-// <headache2>
-
-//</headache2>
 size_t Downloadcacapi::curl_write_hook(const void * read_ptr, const size_t size,
 		const size_t count, void *s_ptr)
 {
 	(*(string*) s_ptr).append((const char*) read_ptr, size * count);
 	return count;
 }
-
 
 string Downloadcacapi::list_files()
 {
@@ -634,74 +526,7 @@ string Downloadcacapi::download(const string& id)
 			"https://download.cloudatcost.com/user/download.php?filecode="
 					+ urlencode(id)));
 }
-/*
-vector<string> Downloadcacapi::download_multi(const vector<string> codes)
-{
 
-	const size_t num = codes.size();
-	vector<string> ret;
-	if (num < 1)
-	{
-		//wtf
-		return ret;
-	}
-	else
-	{
-		this->last_interaction_time = time(NULL);
-	}
-	ret.resize(num);
-	CURL *handles[num];
-	CURLM *multi_handle = ecurl_multi_init();
-	int still_running; // keep number of running handles 
-	for (size_t i = 0; i < num; ++i)
-	{
-		//handles[i] = ecurl_easy_duphandle_with_cookies(this->ch);
-		handles[i] = ecurl_easy_init();
-		ecurl_clone_cookies(this->ch, handles[i]);
-		ecurl_easy_setopt(handles[i], CURLOPT_WRITEFUNCTION,
-				Downloadcacapi::curl_write_hook);
-		ecurl_easy_setopt(handles[i], CURLOPT_WRITEDATA, &(ret[i]));
-		ecurl_easy_setopt(handles[i], CURLOPT_URL,
-				string(
-						"https://download.cloudatcost.com/user/download.php?filecode="
-								+ urlencode(codes[i])).c_str());
-		ecurl_multi_add_handle(multi_handle, handles[i]);
-	}
-	int repeats = 0;
-	do
-	{
-		int numfds;
-		ecurl_multi_perform(multi_handle, &still_running);
-		// wait for activity, timeout or "nothing" 
-		ecurl_multi_wait(multi_handle, NULL, 0, 1000, &numfds);
-
-		// 'numfds' being zero means either a timeout or no file descriptors to
-		// wait for. Try timeout on first occurrence, then assume no file
-		// descriptors and no file descriptors to wait for means wait for 100
-		// milliseconds. 
-		if (!numfds)
-		{
-			repeats++; // count number of repeated zero numfds 
-			if (repeats > 1)
-			{
-				std::this_thread::sleep_for(std::chrono::milliseconds(100));
-			}
-		}
-		else
-		{
-			repeats = 0;
-		}
-	} while (still_running);
-	{
-		ecurl_multi_cleanup(multi_handle);
-		for (size_t i = 0; i < num; ++i)
-		{
-			curl_easy_cleanup(handles[i]);
-		}
-	}
-	return ret;
-}
-*/
 string Downloadcacapi::upload(const string& data, const string& savename)
 {
 	this->last_interaction_time = time(NULL);
@@ -903,47 +728,7 @@ void exit_global_cleanup(void)
 	}
 	printf("shutting down, cleaning up.. thread doing the cleanup: %zu \n",
 			pthread_self());
-	if (kernelIPC.nbd_fd != -1)
-	{
-		if (nbd_initialization_success)
-		{
-			/*
-			 * NBD_DISCONNECT:
-			 * NBD_CLEAR_SOCK:
-			 * */
-			int err = ioctl(kernelIPC.nbd_fd, NBD_CLEAR_SOCK);
-			if (err == -1)
-			{
-				myerror(0, errno, "Warning: NBD_CLEAR_SOCK failed!\n");
-			}
-			err = ioctl(kernelIPC.nbd_fd, NBD_DISCONNECT);
-			if (err == -1)
-			{
-				myerror(0, errno, "Warning: NBD_DISCONNECT failed!\n");
-			}
 
-		}
-		if (-1 == close(kernelIPC.nbd_fd))
-		{
-			myerror(0, errno, "Warning: failed to close the nbd handle!\n");
-		}
-	}
-	if (kernelIPC.remoterequestsocket != -1)
-	{
-		if (-1 == close(kernelIPC.remoterequestsocket))
-		{
-			myerror(0, errno,
-					"Warning: failed to close the kernelIPC.remoterequestsocket!\n");
-		}
-	}
-	if (kernelIPC.localrequestsocket != -1)
-	{
-		if (-1 == close(kernelIPC.localrequestsocket))
-		{
-			myerror(0, errno,
-					"Warning: failed to close the kernelIPC.localrequestsocket!\n");
-		}
-	}
 	if (close_me_on_cleanup)
 	{
 		fclose(close_me_on_cleanup);
