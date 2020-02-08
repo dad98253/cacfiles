@@ -11,11 +11,10 @@
 #include <string>
 #include <vector>
 #ifdef WINDOZE
-#include "../curl-7.68.0/include/curl/curl.h"
 #else
 #include <future>
-#include <curl/curl.h>
 #endif
+#include <curl/curl.h>
 
 using std::string;
 using std::vector;

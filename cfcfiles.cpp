@@ -10,7 +10,6 @@
 #ifdef WINDOZE
 #include <stdlib.h>
 #include <cstddef>
-#include "..\curl-7.68.0\include\curl\curl.h"
 #else
 #include <error.h>
 #include <err.h>
@@ -28,9 +27,9 @@
 #include <inttypes.h> // todo: proper printf macros
 #include <unordered_map>
 #include <linux/nbd.h>
-#include <curl/curl.h>
 #include <errno.h>
 #endif
+#include <curl/curl.h>
 #include <assert.h>
 #include <string>
 #include <cstring>
