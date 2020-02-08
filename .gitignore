@@ -349,6 +349,11 @@ MigrationBackup/
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
 
+# vs2019 stuff
+*.sln
+*.vcxproj
+*.filters
+
 
 # eclipse
 #
